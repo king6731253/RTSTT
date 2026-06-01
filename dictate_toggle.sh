@@ -125,10 +125,12 @@ if [ -f "$PID_FILE" ]; then
         local paste_err
         paste_err=$(osascript -e 'delay 0.1' -e 'tell application "System Events" to key code 9 using {command down}' 2>&1)
         
-        if [[ "$paste_err" == *不允许发送按键* ]] || [[ "$paste_err" == *not allowed to send keystrokes* ]] || [[ "$paste_err" == *error* ]]; then
-            # 友好提示权限问题，说明字已经录入剪贴板，可以直接手动粘贴，并告知如何开启系统权限
-            osascript -e 'display alert "⚠️ Gemini 语音听写权限不足" message "已成功识别且文字已复制到剪贴板！\n\n由于 macOS 的【辅助功能】权限限制，脚本无法自动帮您粘贴。\n\n🎉 临时解决方案：\n请使用 Command + V 直接手动粘贴您的文本。\n\n🔧 永久修复方案：\n前往「系统设置 -> 隐私与安全性 -> 辅助功能」，勾选允许「快捷指令」（或您的终端软件）控制您的电脑。"'
-        fi
+        case "$paste_err" in
+            *不允许发送按键*|*not*allowed*|*error*|*Error*)
+                # 友好提示权限问题，说明字已经录入剪贴板，可以直接手动粘贴，并告知如何开启系统权限
+                osascript -e 'display alert "⚠️ Gemini 语音听写权限不足" message "已成功识别且文字已复制到剪贴板！\n\n由于 macOS 的【辅助功能】权限限制，脚本无法自动帮您粘贴。\n\n🎉 临时解决方案：\n请使用 Command + V 直接手动粘贴您的文本。\n\n🔧 永久修复方案：\n前往「系统设置 -> 隐私与安全性 -> 辅助功能」，勾选允许「快捷指令」（或您的终端软件）控制您的电脑。"'
+                ;;
+        esac
         
         # 将转写结果同时输出到标准输出
         echo "$TEXT"
