@@ -10,6 +10,34 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PAT
 
 FLAG_FILE="$HOME/.gemini_dictation_checked"
 
+# 获取最佳的麦克风录音设备索引，自动排除 iShotAudioPlugin、BlackHole 等虚拟声卡
+get_mic_index() {
+    # 执行 ffmpeg 列出所有设备，并过滤出音频设备部分
+    local devices
+    devices=$(ffmpeg -f avfoundation -list_devices true -i "" 2>&1)
+    
+    # 解析音频设备行，排除常见虚拟声卡，并按优先级匹配带“麦克风”或“Microphone”字样的设备
+    local mic_lines
+    mic_lines=$(echo "$devices" | grep -A 50 "AVFoundation audio devices:" | grep "\[[0-9]\]" | grep -v -i -E "ishot|blackhole|loopback|zoom|soundflower|virtual")
+    
+    local best_mic
+    best_mic=$(echo "$mic_lines" | grep -i -E "麦克风|microphone|mic" | head -n 1)
+    
+    if [ -n "$best_mic" ]; then
+        echo "$best_mic" | sed -E 's/.*\[([0-9]+)\].*/\1/'
+        return
+    fi
+    
+    local fallback_mic
+    fallback_mic=$(echo "$mic_lines" | head -n 1)
+    if [ -n "$fallback_mic" ]; then
+        echo "$fallback_mic" | sed -E 's/.*\[([0-9]+)\].*/\1/'
+        return
+    fi
+    
+    echo "default"
+}
+
 # ==================== 首次运行/权限检测函数 ====================
 check_permissions() {
     # 1. 检测 ffmpeg 是否存在
@@ -32,7 +60,8 @@ check_permissions() {
     fi
 
     # 4. 检测麦克风（Microphone）录音权限 (通过 0.1秒 极速静默录音测试)
-    ffmpeg -y -f avfoundation -i "none:default" -t 0.1 /tmp/perm_test.wav >/dev/null 2>&1
+    local mic_idx=$(get_mic_index)
+    ffmpeg -y -f avfoundation -i "none:$mic_idx" -t 0.1 /tmp/perm_test.wav >/dev/null 2>&1
     local ret=$?
     if [ ! -f "/tmp/perm_test.wav" ] || [ $ret -ne 0 ]; then
         osascript -e 'display alert "⚠️ Gemini 语音听写权限不足" message "检测到没有【麦克风】录音权限。\n\n请前往「系统设置 -> 隐私与安全性 -> 麦克风」，允许「快捷指令」或「终端」使用您的麦克风。"'
@@ -114,9 +143,10 @@ else
     # 2. 播放高品质无延迟的“开始录音”提示音 (Ping 声音，清亮悦耳的科技短音，代表已进入录音状态)
     afplay /System/Library/Sounds/Ping.aiff &
     
-    # 3. 启动后台 ffmpeg 录音进程，采用单声道 (1 channel) 16000Hz 采样率，并明确指定 "none:default" 屏蔽视频设备扫描
+    # 3. 启动后台 ffmpeg 录音进程，采用单声道 (1 channel) 16000Hz 采样率，自动获取真实的麦克风设备索引并屏蔽视频设备扫描
     # 彻底杜绝了 Continuity Camera 以及摄像头扫描带来的数百毫秒初始化延迟，实现毫秒级瞬时开启录音，绝不丢字！
-    ffmpeg -y -f avfoundation -i "none:default" -ar 16000 -ac 1 "$AUDIO_FILE" > "$FFMPEG_LOG" 2>&1 &
+    local mic_idx=$(get_mic_index)
+    ffmpeg -y -f avfoundation -i "none:$mic_idx" -ar 16000 -ac 1 "$AUDIO_FILE" > "$FFMPEG_LOG" 2>&1 &
     
     # 保存后台 ffmpeg 进程 PID
     echo $! > "$PID_FILE"

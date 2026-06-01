@@ -113,8 +113,15 @@ class DictateHandler(BaseHTTPRequestHandler):
                     )
                 )
                 
-                raw_text = response.text.strip()
-                cleaned_text = clean_transcription_spaces(raw_text)
+                # 提取转写文本，安全处理 NoneType
+                raw_text = response.text or ""
+                raw_text = raw_text.strip()
+                
+                # 过滤掉仅含时间戳/方括号的无意义静音响应（如 [ 0m0s - 0m3s ]）
+                if not raw_text or re.match(r'^[\s\d\-ms\[\]\.:]+$', raw_text):
+                    cleaned_text = ""
+                else:
+                    cleaned_text = clean_transcription_spaces(raw_text)
                 
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/plain; charset=utf-8')

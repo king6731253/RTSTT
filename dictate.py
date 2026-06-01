@@ -115,11 +115,16 @@ try:
         )
     )
     
-    # 提取转写文本
-    raw_text = response.text.strip()
+    # 提取转写文本，安全处理 NoneType
+    raw_text = response.text or ""
+    raw_text = raw_text.strip()
     
-    # 通过智能算法过滤掉因说话停顿产生的冗余中文空格，保留英文正常空格
-    cleaned_text = clean_transcription_spaces(raw_text)
+    # 过滤掉仅含时间戳/方括号的无意义静音响应（如 [ 0m0s - 0m3s ]）
+    if not raw_text or re.match(r'^[\s\d\-ms\[\]\.:]+$', raw_text):
+        cleaned_text = ""
+    else:
+        # 通过智能算法过滤掉因说话停顿产生的冗余中文空格，保留英文正常空格
+        cleaned_text = clean_transcription_spaces(raw_text)
     
     # 输出干净无空格干扰的转写文本
     print(cleaned_text)
