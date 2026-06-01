@@ -127,8 +127,9 @@ if [ -f "$PID_FILE" ]; then
         
         case "$paste_err" in
             *不允许发送按键*|*not*allowed*|*error*|*Error*)
-                # 友好提示权限问题，说明字已经录入剪贴板，可以直接手动粘贴，并告知如何开启系统权限
-                osascript -e 'display alert "⚠️ Gemini 语音听写权限不足" message "已成功识别且文字已复制到剪贴板！\n\n由于 macOS 的【辅助功能】权限限制，脚本无法自动帮您粘贴。\n\n🎉 临时解决方案：\n请使用 Command + V 直接手动粘贴您的文本。\n\n🔧 永久修复方案：\n前往「系统设置 -> 隐私与安全性 -> 辅助功能」，勾选允许「快捷指令」（或您的终端软件）控制您的电脑。"'
+                # 友好提示权限问题，并在弹窗中附带底层报错细节方便排查
+                local clean_err=$(echo "$paste_err" | tr '"' "'")
+                osascript -e "display alert \"⚠️ Gemini 语音听写权限不足\" message \"已成功识别且文字已复制到剪贴板！\n\n系统底层拦截报错如下：\n『 $clean_err 』\n\n🎉 临时解决方案：\n请使用 Command + V 直接手动粘贴您的文本。\n\n🔧 永久与深度修复方案：\n1. 【非常重要】权限更改在软件重启前不会生效！请完全退出（Cmd+Q）并重新启动您的终端（如 Ghostty）或快捷指令服务。\n2. 确保在「系统设置 -> 隐私与安全性 -> 辅助功能」中，勾选允许了相应的软件（包括正在调用的后台进程）。\n3. 如果还是不行，可能是系统缓存损坏。您可以在终端中运行：\n   \`tccutil reset Accessibility\`\n   重置系统辅助功能权限数据库后重新勾选即可。\""
                 ;;
         esac
         
