@@ -1,0 +1,6 @@
+.venv/
+*.wav
+*.pid
+*.log
+.DS_Store
+__pycache__/
