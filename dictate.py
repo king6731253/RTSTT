@@ -28,7 +28,7 @@ if not os.path.exists(audio_path):
     sys.exit(1)
 
 # 获取 API Key，优先从环境变量读取，其次使用默认硬编码 Key
-api_key = os.environ.get("GEMINI_API_KEY", "AIzaSyC93bGTPtHR_g3UcGBf6G9Ful8uL33KAt0")
+api_key = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
 def clean_transcription_spaces(text: str) -> str:

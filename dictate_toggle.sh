@@ -49,6 +49,9 @@ check_permissions() {
     # 2. 检测 API Key 是否配置
     source ~/.zshrc 2>/dev/null
     if [ -z "$GEMINI_API_KEY" ]; then
+        export GEMINI_API_KEY=$(grep -E "^export GEMINI_API_KEY=" ~/.zshrc | cut -d'=' -f2- | tr -d '"' | tr -d "'")
+    fi
+    if [ -z "$GEMINI_API_KEY" ]; then
         osascript -e 'display alert "⚠️ Gemini 语音听写错误" message "未检测到 GEMINI_API_KEY 环境变量。\n\n请确保已在 ~/.zshrc 中配置并使用 export 导出该变量。"'
         exit 1
     fi
@@ -104,8 +107,11 @@ if [ -f "$PID_FILE" ]; then
         count=$((count + 1))
     done
     
-    # 引入 zsh 环境变量以获得 GEMINI_API_KEY
+    # 引入 zsh 环境变量，并安全精确地从 ~/.zshrc 提取 GEMINI_API_KEY（避免非交互式下 source 脚本因 TTY 缺失提前中止导致变量丢失）
     source ~/.zshrc 2>/dev/null
+    if [ -z "$GEMINI_API_KEY" ]; then
+        export GEMINI_API_KEY=$(grep -E "^export GEMINI_API_KEY=" ~/.zshrc | cut -d'=' -f2- | tr -d '"' | tr -d "'")
+    fi
     
     # 极速调用常驻后台听写守护进程（127.0.0.1:18888），通过保活 HTTP 长连接直接提交任务，免去 TLS 握手及 Python 启动开销！
     # curl 发送本机环回请求仅需 3~5ms，瞬间触达，响应速度成倍提升！
@@ -148,7 +154,13 @@ else
     # 1. 检测后台常驻听写守护进程是否存活，若已死则在您说话的黄金时间里自动、静默地在后台唤醒它！
     # 利用说话的几秒时间完成进程初始化并建立 HTTPS 长连接，到结束听写时即为热连接，达到 0ms 握手开销！
     if ! curl -s --connect-timeout 0.1 http://127.0.0.1:18888/ping &>/dev/null; then
-        (source ~/.zshrc 2>/dev/null; /Users/yuanjin/localbin/.venv/bin/python /Users/yuanjin/localbin/dictate_daemon.py >/dev/null 2>&1 &)
+        (
+            source ~/.zshrc 2>/dev/null
+            if [ -z "$GEMINI_API_KEY" ]; then
+                export GEMINI_API_KEY=$(grep -E "^export GEMINI_API_KEY=" ~/.zshrc | cut -d'=' -f2- | tr -d '"' | tr -d "'")
+            fi
+            /Users/yuanjin/localbin/.venv/bin/python /Users/yuanjin/localbin/dictate_daemon.py >/dev/null 2>&1 &
+        )
     fi
     
     # 2. 播放高品质无延迟的“开始录音”提示音 (Ping 声音，清亮悦耳的科技短音，代表已进入录音状态)
